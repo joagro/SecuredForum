@@ -6,6 +6,10 @@ const store = require('better-express-store');
 
 const restPrefix = "/api/rest"
 const users = require('./routes/users')
+const auth = require('./routes/auth')
+
+const ACL = require('./ACL');
+const ACLsettings = require('./ACLsettings');
 
 app.use(express.json());
 
@@ -18,8 +22,12 @@ app.use(session({
 
 }));
 
+app.use(ACL(ACLsettings));
+
 app.listen(3000, () => {
     console.log("Server listening on port 3000")
 });
 
 app.use("/api", users);
+
+app.use("/auth", auth)

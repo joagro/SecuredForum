@@ -12,10 +12,32 @@ router
     .get((req, res) => {
 
         let statement = db.prepare(`
-        SELECT * FROM users
+          SELECT 
+                U.id, U.email, GROUP_CONCAT(R.role_name) as userRoles 
+            FROM 
+                users AS U, users_x_roles AS UXR, roles AS R
+            WHERE 
+                U.id = UXR.user_id AND UXR.role_id = R.role_id
+            GROUP BY 
+                U.email
+            ORDER BY
+                U.id
         `);
 
-        res.json(statement.all().map(x => ({ ...x, password: undefined })));
+        /* 
+        
+         SELECT * FROM users
+
+            SELECT 
+                U.id, U.email, GROUP_CONCAT(R.role_name) as userRoles 
+            FROM 
+                users AS U, users_x_roles AS UXR, roles AS R
+            WHERE 
+                U.id = UXR.user_id AND UXR.role_id = R.role_id
+
+        */
+        //res.json(statement.all().map(x => ({ ...x, password: undefined })));
+        res.json(statement.all());
     })
     
     .post((req, res) => {
