@@ -7,16 +7,16 @@ module.exports = {
 
     users(user, method, req) {
 
-        console.log("req body")
-        console.log(req.body)
-        console.log(req.userRoles)
+        //console.log("req body")
+        //console.log(req.body)
+        //console.log(req.userRoles)
 
         //Allow admin to add a user with any role
         if (method === "POST" && user.userRoles.includes("admin")){
             return true;
         }
-        //allow anyone to create a user
-        if (method === "POST" && req.body.userRoles.includes("basicUser") && req.body.userRoles.length === 1){
+        //allow anyone to create a user //if (method === "POST" && req.body.userRoles !== undefined &&req.body.userRoles.length === 1 && req.body.userRoles.includes("basicUser")){
+        if (method === "POST" && req.body.userRoles === undefined){
 
             //&& req.body.userRole === "basicUser"
             //console.log("valid basic user creation")

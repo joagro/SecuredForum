@@ -2,141 +2,169 @@ const express = require('express');
 const sqlite3 = require('better-sqlite3');
 const MyEncryption = require('../MyEncryption');
 
+const { body, validationResult } = require('express-validator');
+
+const { errorFormatter} = require('./ValidationFunctions');
+
+const UserFunctions = require('../DBfunctions/UsersFunctions')
+const MyUsers = new UserFunctions('./SecuredDB.db')
+
 let router = express.Router()
 
-const db = sqlite3('./SecuredDB.db');
-
 router
-    .route("/users")
+    .route("/users", )
 
     .get((req, res) => {
-
-        let statement = db.prepare(`
-          SELECT 
-                U.id, U.email, GROUP_CONCAT(R.role_name) as userRoles 
-            FROM 
-                users AS U, users_x_roles AS UXR, roles AS R
-            WHERE 
-                U.id = UXR.user_id AND UXR.role_id = R.role_id
-            GROUP BY 
-                U.email
-            ORDER BY
-                U.id
-        `);
-
-        /* 
-        
-         SELECT * FROM users
-
-            SELECT 
-                U.id, U.email, GROUP_CONCAT(R.role_name) as userRoles 
-            FROM 
-                users AS U, users_x_roles AS UXR, roles AS R
-            WHERE 
-                U.id = UXR.user_id AND UXR.role_id = R.role_id
-
-        */
-        //res.json(statement.all().map(x => ({ ...x, password: undefined })));
-        res.json(statement.all());
+      return res.status(200).json(MyUsers.getAllUsers());
     })
     
-    .post((req, res) => {
-        
-        let body = req.body;
+    .post(
+      body('email').isEmail().withMessage('must submit a proper email'),
+      body('password').exists().withMessage('must submit a password'),
+      body("userRoles").optional().isArray().withMessage('must be an array').isLength({ min: 1 }).withMessage('must contain atleast one valid userRole'),
+      body().custom(body => {
+        const keys = ['email', 'password', 'userRoles'];
+        return Object.keys(body).every(key => keys.includes(key));
+        }).withMessage('Some extra parameters are sent'),
+       (req, res) => {
 
-        //sanity check
-        if (!body.password || !body.email || !body.userRoles || body.userRoles.length === 0) {
-            res.status(400)
-            return res.json(`${body.password ? '' : "password "}${body.email ? '' : "email "}${body.userRoles ? '' : "userRoles "}undefined`)
+        const errors = validationResult(req).formatWith(errorFormatter);
 
-        } else {
-
-            if (body.password) {
-                body.password = MyEncryption.encryptarrow(body.password);
-              }
-            
-              let insertUserStatement = db.prepare(`INSERT INTO users (email, password) VALUES (?, ?)`);
-              var error;
-      
-              try {
-                  var user = insertUserStatement.run(body.email, body.password)
-              }
-              catch(err) {
-                  error = err
-
-                  if (error.message.includes("UNIQUE")){
-                      var response = error.message.toString().replace("UNIQUE constraint failed: users.", '') //.replace("UNIQUE constraint failed: users.", '')
-                      console.log(response.replace("UNIQUE constraint failed: users.", ''))
-                      return res.json(`${error.message.replace("UNIQUE constraint failed: users.", '')}, already exists` )
-
-                  } else if (error.message.includes("CHECK")){
-                        var response = error.message.replace("UNIQUE constraint failed: users.", '')
-                        return res.json(`invalid ${response}` )
-                  } else{
-                    return res.json(error.message)
-                  }
-              }
-
-              let userRolesStatement = db.prepare(`SELECT *
-              FROM roles
-              WHERE role_name IN 
-              ${'(?' + ',?'.repeat(body.userRoles.length-1) + ')'}`)
-              const testresp = userRolesStatement.all(body.userRoles);
-              const roles = testresp.map(x => ({role_id: x.role_id, user_id: user.lastInsertRowid}))
-      
-              let insertRoles = db.prepare
-                  ('INSERT INTO users_x_roles (user_id, role_id) VALUES (@user_id, @role_id)');
-      
-              const insertManyRoles = db.transaction((roles) => {
-              for (let role of roles) insertRoles.run(role);
-              });
-      
-              insertManyRoles(roles);
-      
-              return res.json(user);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
         }
-      })
+
+        let user = req.body;
+
+        if(!user.hasOwnProperty("userRoles")) {
+          user.userRoles = ["basicUser"]
+        }
+
+        user.password = MyEncryption.encryptarrow(user.password);
+
+        let validatedRoles;
+          
+        try {
+          validatedRoles = MyUsers.validateUserRoles(user.userRoles);
+          //errors: "input is not an array", "input list is empty", "invalid userRoles found:"
+          var newUser = MyUsers.insertUser(user.email, user.password);
+          //errors: "UNIQUE constraint failed:", "CHECK constraint failed: "
+        } catch(err) {
+
+          if (err.message.includes("UNIQUE")){
+
+            return res.status(400).json(`${err.message.replace("UNIQUE constraint failed: users.", '')}, already exists` );
+
+          } else if (err.message.includes("CHECK")){
+
+            return res.status(400).json(err.message.replace("CHECK constraint failed: ", ''));
+
+          } else if (err.message.includes("input is not an array")){
+
+            return res.status(400).json("input is not an array");
+
+          } else if (err.message.includes("input list is empty")){
+
+            return res.status(400).json("input list is empty");
+
+          } else if (err.message.includes("invalid userRoles found:")){
+
+            return res.status(400).json("invalid userRoles found:");
+            
+          } else{
+            return res.status(400).json(err.message);
+          }
+        }
+
+        MyUsers.insertUserRoles(validatedRoles, newUser.lastInsertRowid);
+        return res.status(200).json(newUser); 
+    })
 
 router
     .route("/users/:id")
     
     .get((req, res) => {
-        let statement = db.prepare(`
-        SELECT 
-            * 
-        FROM 
-            users
-        WHERE 
-            id = $id
-      `);
-        let result = statement.get(req.params) || null;
-        if (result) { delete result.password; }
-        res.json(result);
+
+      try {
+        var user = MyUsers.getUserById(req.params.id);
+      } catch(error) {
+        return res.status(400).json(error.message)
+      }
+      return res.status(200).json(user)
       })
 
-      .put((req, res) => {
+      ////.isEmail().withMessage('must submit a proper email')
+      .put(
+        body('email').optional().isEmail().withMessage('must submit a proper email'), 
+        body('password').optional().exists().withMessage('must submit a password'),
+        body("userRoles").optional().isArray().withMessage('must be an array').isLength({ min: 1 }).withMessage('must contain atleast one valid userRole'),
+        body().custom(body => {
+          const keys = ['email', 'password', 'userRoles', "dude"];
+          return Object.keys(body).every(key => keys.includes(key));
+          }).withMessage('Some extra parameters are sent'),
+        (req, res) => {
+
+        const errors = validationResult(req).formatWith(errorFormatter);
+
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
+        }
+        
         let body = req.body;
+
+        body.id = req.params.id;
 
         if (body.password) {
           body.password = MyEncryption.encryptarrow(body.password);
         }
-        // Add the id to b
-        body.id = req.params.id;
 
-        let statement = db.prepare(`
-        UPDATE users 
-        SET ${Object.keys(body).map(x => x + ' = $' + x)}
-        WHERE id = $id
-      `);
-        // Run the statement
-        res.json(statement.run(body));
+        let validatedRoles;
+
+        if (body.userRoles) {
+  
+          try {
+            validatedRoles = MyUsers.validateUserRoles(body.userRoles);
+          } catch(error) {
+            return res.status(400).json(error.message);
+          }
+          delete body.userRoles;
+        }
+
+        try {
+          var updatedUser = MyUsers.updateUser(body)
+        } catch(err) {
+          if (err.message.includes("no such column")){
+            return res.status(400).json(`invalid data, ${err.message.replace("no such column: " , '')} `)
+
+          } else if(err.message.includes("SQLite3 can only bind")){
+            return res.status(400).json(`invalid data`)
+
+          } else if(err.message.includes("UNIQUE")){
+            return res.status(400).json(`${err.message.replace("UNIQUE constraint failed: users.", '')}, already exists` );
+
+          } else if (err.message.includes("CHECK")){
+            return res.status(400).json(err.message.replace("CHECK constraint failed: ", ''));
+
+          } else {
+            return res.status(400).json(`invalid data`)
+          }
+        }
+
+        if (validatedRoles) {
+          MyUsers.deleteUserRoles(body.id)
+          MyUsers.insertUserRoles(validatedRoles, body.id);
+        }
+        return res.json("success")
       })
 
     .delete((req, res) => {
-        let statement = db.prepare(`
-        DELETE FROM users WHERE id = $id
-      `);
-        res.json(statement.run(req.params));
+
+      try {
+        MyUsers.deleteUserAndRoles(req.params.id)
+      } catch(error) {
+        return res.status(400).json(error.message)
+      }
+        return res.status(200).json("User succssfully deleted");
       })
-    
+
       module.exports = router;
