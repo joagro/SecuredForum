@@ -7,6 +7,9 @@ const store = require('better-express-store');
 const restPrefix = "/api/rest"
 const users = require('./routes/users')
 const auth = require('./routes/auth')
+const forums = require('./routes/forums')
+const threads = require('./routes/threads')
+const posts = require('./routes/posts')
 
 const ACL = require('./ACL');
 const ACLsettings = require('./ACLsettings');
@@ -28,6 +31,12 @@ app.listen(3000, () => {
     console.log("Server listening on port 3000")
 });
 
-app.use("/api", users);
+app.use("/api/users", users);
 
-app.use("/auth", auth)
+app.use("/auth", auth);
+
+app.use("/api/forums", forums);
+
+app.use("/api/threads", threads);
+
+app.use("/api/posts", posts)

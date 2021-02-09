@@ -9,7 +9,6 @@ const db = sqlite3('./SecuredDB.db');
 router
     .route("")
     .post((req, res) => {
-        console.log("logging in")
         //login
         if(req.body.password){
             req.body.password = 

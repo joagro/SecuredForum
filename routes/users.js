@@ -12,7 +12,7 @@ const MyUsers = new UserFunctions('./SecuredDB.db')
 let router = express.Router()
 
 router
-    .route("/users", )
+    .route("")
 
     .get((req, res) => {
       return res.status(200).json(MyUsers.getAllUsers());
@@ -77,11 +77,12 @@ router
         }
 
         MyUsers.insertUserRoles(validatedRoles, newUser.lastInsertRowid);
+        //post should use 201
         return res.status(200).json(newUser); 
     })
 
 router
-    .route("/users/:id")
+    .route("/:id")
     
     .get((req, res) => {
 
@@ -94,6 +95,7 @@ router
       })
 
       ////.isEmail().withMessage('must submit a proper email')
+      //PUT has to be itempotent 
       .put(
         body('email').optional().isEmail().withMessage('must submit a proper email'), 
         body('password').optional().exists().withMessage('must submit a password'),

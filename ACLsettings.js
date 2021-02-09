@@ -7,10 +7,6 @@ module.exports = {
 
     users(user, method, req) {
 
-        //console.log("req body")
-        //console.log(req.body)
-        //console.log(req.userRoles)
-
         //Allow admin to add a user with any role
         if (method === "POST" && user.userRoles.includes("admin")){
             return true;
@@ -34,7 +30,6 @@ module.exports = {
         }
 
         //allow a user to change their own userinfo
-        //TODO fix so that a normal user can change his userroles
         //req.params are not available here, so we need to cut it out //req.params.id
         if (method === "PUT" && user && + req.url.split('/').pop() === user.id){ //req.body.userRoles.length === 0
             return true;
@@ -44,14 +39,52 @@ module.exports = {
         }
         return false; // whitelist rather than blacklist, default response is always false
     },
+    
     login() {
         //this needs to be available for all
         return true;
     },
+
+    forums(user, method, req) {
+        return true;
+    },
+
+    posts(user, method, req) {
+        if (method === "POST" && user.userRoles.includes("basicUser")) {
+            //console.log("posting in posts")
+            //console.log("here we are")
+            //console.log(user)
+            return true;
+        }
+        return false;
+    },
+
+    threads(user, method, req) {
+
+        if (method === "POST" && user.userRoles.includes("basicUser")) {
+            /* 
+            check if the body doesn't contain moderatorComment
+            a seperate if statement is needed, that checsk if the user has the role admin
+            a seperate one for moderators, checking if they have the moderator role for that forum
+            Human readable moderator roles looks something like forum.forum_name + "Moderator"
+            */
+
+            return true;
+        }
+
+        if (method === "GET") {
+            return true;
+        }
+        /*
+        if (method === "POST" && user.userRoles.includes("basicUser")){
+            return true;
+        }
+        */
+        return false;
+    },
+
     auth(user, method, req) {
-        console.log(user)
         //this needs to be available for all
-        console.log("auth is fine")
         return true;
     }
 }
