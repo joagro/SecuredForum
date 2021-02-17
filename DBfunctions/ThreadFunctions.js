@@ -9,46 +9,79 @@ module.exports = function(pathToDB) {
 
     return {
 
-        getThreadWithPosts: (threadId, page) => {
+        titleExists(title){
 
             const threadStatement = db.prepare(`
             SELECT
-                T.thread_title, T.thread_id, COUNT(P.post_id) AS number_of_posts, U.email AS author
+                *
             FROM
-                threads AS T, posts AS P, users AS U
+                threads
             WHERE
-                T.thread_id = ? AND P.parent_thread = T.thread_id AND P.author = U.id
+                T.thread_title = ?
             `)
 
-        let thread = objSnakeToCamel(threadStatement.get(threadId))
+            const result = threadStatement.get(title)
 
-        //TODO fetch author an username here as well
+            if (result) {
+                return true
+    
+            }else {
+                return false
+            }
+        },
 
-        const postsStatement = db.prepare(`
-            SELECT
-                P.post_id, P.content, P.moderator_comment, P.timestamp, P.author, U.email AS author
-            FROM
-                posts AS P, users AS U
-            WHERE
-                P.parent_thread = $threadId AND U.id = P.author
-            ORDER BY
-                P.post_id
-            LIMIT 10 OFFSET 10*$page
-        `)
-        let posts = postsStatement.all({threadId, page});
+        getThreadWithPosts: (threadId, page = 0) => {
 
-        thread.posts = posts.map( post => objSnakeToCamel(post))
+            //you can get the last page by choosing page -1
+            //rounding is dirty, but working fine for the purpose here, sqlite3 doesn't have ceil
 
-        return thread;
+            const threadStatement = db.prepare(`
+                SELECT
+                    T.thread_title, 
+                    T.thread_id,
+                    T.timestamp,
+                    COUNT(P.post_id) AS number_of_posts,
+                    U.email AS author
+                FROM
+                    threads AS T, posts AS P, users AS U
+                WHERE
+                    T.thread_id = ? AND P.parent_thread = T.thread_id AND P.author = U.id
+            `)
+
+            let thread = objSnakeToCamel(threadStatement.get(threadId))
+            //TODO maybe do this on frontend?
+            thread.pages = Math.ceil(thread.numberOfPosts / 10);
+
+            //TODO fetch author an username here as well
+
+            const postsStatement = db.prepare(`
+                SELECT
+                    P.post_id, P.content, P.moderator_comment, P.timestamp, P.author, U.email AS author
+                FROM
+                    posts AS P, users AS U
+                WHERE
+                    P.parent_thread = $threadId AND U.id = P.author
+                ORDER BY
+                    P.post_id
+                LIMIT 10 OFFSET 10*$page
+            `)
+            let posts = postsStatement.all({threadId, page});
+
+            thread.posts = posts.map( post => objSnakeToCamel(post))
+
+            return thread;
         },
 
         threadExists: (threadId) => {
            
-            const threadStatement = db.prepare(
-                `SELECT *
-                FROM threads
-                WHERE thread_id = ?`
-            )
+            const threadStatement = db.prepare(`
+                SELECT 
+                    *
+                FROM 
+                    threads
+                WHERE 
+                    thread_id = ?
+            `)
 
             let result = threadStatement.get(threadId)
 

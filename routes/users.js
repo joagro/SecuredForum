@@ -1,5 +1,4 @@
 const express = require('express');
-const sqlite3 = require('better-sqlite3');
 const MyEncryption = require('../MyEncryption');
 
 const { body, validationResult } = require('express-validator');
@@ -19,7 +18,7 @@ router
     })
     
     .post(
-      body('email').isEmail().withMessage('must submit a proper email'),
+      body('email').isEmail().withMessage('must submit a proper email'),  //TODO check for unique
       body('password').exists().withMessage('must submit a password'),
       body("userRoles").optional().isArray().withMessage('must be an array').isLength({ min: 1 }).withMessage('must contain atleast one valid userRole'),
       body().custom(body => {
@@ -78,7 +77,7 @@ router
 
         MyUsers.insertUserRoles(validatedRoles, newUser.lastInsertRowid);
         //post should use 201
-        return res.status(200).json(newUser); 
+        return res.status(201).json(newUser); 
     })
 
 router
@@ -95,7 +94,7 @@ router
       })
 
       ////.isEmail().withMessage('must submit a proper email')
-      //PUT has to be itempotent 
+      //PUT has to be itempotent change to PATCH
       .put(
         body('email').optional().isEmail().withMessage('must submit a proper email'), 
         body('password').optional().exists().withMessage('must submit a password'),

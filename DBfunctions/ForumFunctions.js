@@ -27,7 +27,11 @@ module.exports = function(pathToDB) {
 
             const threadStatement = db.prepare(`
             SELECT 
-                T.thread_title, T.thread_id, COUNT(P.post_id) as number_of_posts, U.email AS author
+                T.thread_title, 
+                T.thread_id,
+                T.timestamp,
+                COUNT(P.post_id) as number_of_posts, 
+                U.email AS author
             FROM
                 threads AS T, posts AS P, users AS U
             WHERE

@@ -30,6 +30,16 @@ app.use(ACL(ACLsettings));
 app.listen(3000, () => {
     console.log("Server listening on port 3000")
 });
+/* 
+    /forums/ GET - hämta alla forum, basic överblick
+    /forums/{id}/page/{page} GET - hämta ett specifikt forum, om /page/ ej anges så är det sidan noll
+
+    /threads/ POST -skapa ny tråd
+    /threads/{id} GET hämta tråd
+    /threads/{id} PATCH - lås tråd
+
+    /posts/ POST -skapa post
+*/
 
 app.use("/api/users", users);
 
