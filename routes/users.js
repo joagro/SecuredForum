@@ -14,17 +14,41 @@ router
     .route("")
 
     .get((req, res) => {
+
       return res.status(200).json(MyUsers.getAllUsers());
     })
     
     .post(
-      body('email').isEmail().withMessage('must submit a proper email'),  //TODO check for unique
-      body('password').exists().withMessage('must submit a password'),
-      body("userRoles").optional().isArray().withMessage('must be an array').isLength({ min: 1 }).withMessage('must contain atleast one valid userRole'),
+      body('email')
+        .isEmail()
+        .withMessage('must submit a proper email')
+        .custom(email => {
+
+          const result = MyUsers.getUserByEmail(email)
+
+          if(result){
+            return false
+          } else{
+            return true
+          }
+        }).withMessage('user with that email already exists'), 
+
+      body('password')
+        .exists()
+        .withMessage('must submit a password'),
+
+      body("userRoles")
+        .optional()
+        .isArray()
+        .withMessage('must be an array')
+        .custom(userRoles => {
+            return MyUsers.secondValidateUserRoles(userRoles);
+        }).withMessage('must contain atleast one valid userRole and no invalid ones'),
+
       body().custom(body => {
         const keys = ['email', 'password', 'userRoles'];
         return Object.keys(body).every(key => keys.includes(key));
-        }).withMessage('Some extra parameters are sent'),
+        }).withMessage('unallowed parameters sent with request'),
        (req, res) => {
 
         const errors = validationResult(req).formatWith(errorFormatter);
@@ -40,12 +64,8 @@ router
         }
 
         user.password = MyEncryption.encryptarrow(user.password);
-
-        let validatedRoles;
           
         try {
-          validatedRoles = MyUsers.validateUserRoles(user.userRoles);
-          //errors: "input is not an array", "input list is empty", "invalid userRoles found:"
           var newUser = MyUsers.insertUser(user.email, user.password);
           //errors: "UNIQUE constraint failed:", "CHECK constraint failed: "
         } catch(err) {
@@ -58,25 +78,12 @@ router
 
             return res.status(400).json(err.message.replace("CHECK constraint failed: ", ''));
 
-          } else if (err.message.includes("input is not an array")){
-
-            return res.status(400).json("input is not an array");
-
-          } else if (err.message.includes("input list is empty")){
-
-            return res.status(400).json("input list is empty");
-
-          } else if (err.message.includes("invalid userRoles found:")){
-
-            return res.status(400).json("invalid userRoles found:");
-            
           } else{
             return res.status(400).json(err.message);
           }
         }
 
-        MyUsers.insertUserRoles(validatedRoles, newUser.lastInsertRowid);
-        //post should use 201
+        MyUsers.insertUserRoles(user.userRoles, newUser.lastInsertRowid);
         return res.status(201).json(newUser); 
     })
 
@@ -93,16 +100,39 @@ router
       return res.status(200).json(user)
       })
 
-      ////.isEmail().withMessage('must submit a proper email')
-      //PUT has to be itempotent change to PATCH
+      //TODO PUT has to be itempotent change to PATCH
       .put(
-        body('email').optional().isEmail().withMessage('must submit a proper email'), 
-        body('password').optional().exists().withMessage('must submit a password'),
-        body("userRoles").optional().isArray().withMessage('must be an array').isLength({ min: 1 }).withMessage('must contain atleast one valid userRole'),
+        body('email')
+          .optional()
+          .isEmail()
+          .withMessage('must submit a proper email')
+          .custom((email, { req }) => {
+            const result = MyUsers.getUserByEmail(email)
+
+            if(result){
+              return false
+            } else{
+              return true
+            }
+          }).withMessage('another user with that email already exists, or this is your current email'),
+          
+        body('password')
+          .optional()
+          .exists()
+          .withMessage('must submit a password'),
+
+        body("userRoles")
+          .optional()
+          .isArray()
+          .withMessage('must be an array')
+          .custom(userRoles => {
+              return MyUsers.secondValidateUserRoles(userRoles);
+          }).withMessage('must contain atleast one valid userRole and no invalid ones'),
+
         body().custom(body => {
-          const keys = ['email', 'password', 'userRoles', "dude"];
+          const keys = ['email', 'password', 'userRoles'];
           return Object.keys(body).every(key => keys.includes(key));
-          }).withMessage('Some extra parameters are sent'),
+          }).withMessage('unallowed parameters sent with request'),
         (req, res) => {
 
         const errors = validationResult(req).formatWith(errorFormatter);
@@ -117,18 +147,6 @@ router
 
         if (body.password) {
           body.password = MyEncryption.encryptarrow(body.password);
-        }
-
-        let validatedRoles;
-
-        if (body.userRoles) {
-  
-          try {
-            validatedRoles = MyUsers.validateUserRoles(body.userRoles);
-          } catch(error) {
-            return res.status(400).json(error.message);
-          }
-          delete body.userRoles;
         }
 
         try {
@@ -151,11 +169,11 @@ router
           }
         }
 
-        if (validatedRoles) {
+        if (body.userRoles) {
           MyUsers.deleteUserRoles(body.id)
-          MyUsers.insertUserRoles(validatedRoles, body.id);
+          MyUsers.insertUserRoles(body.userRoles, body.id);
         }
-        return res.json("success")
+        return res.status(201).json("success")
       })
 
     .delete((req, res) => {

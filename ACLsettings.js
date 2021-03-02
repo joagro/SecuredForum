@@ -20,17 +20,17 @@ module.exports = {
         }
         //allows all authorized users to see a list of other users
         if (method === "GET" && user.userRoles.includes("basicUser")) {
-            //console.log("here we are")
-            //console.log(user)
             return true;
         }
         //Allow admin to change userinfo
+        //TODO change to PATCH
         if (method === "PUT" && user.userRoles.includes("admin")){ 
             return true;
         }
 
         //allow a user to change their own userinfo
         //req.params are not available here, so we need to cut it out //req.params.id
+        //TODO change to PATCH
         if (method === "PUT" && user && + req.url.split('/').pop() === user.id){ //req.body.userRoles.length === 0
             return true;
         }
@@ -50,10 +50,15 @@ module.exports = {
     },
 
     posts(user, method, req) {
-        if (method === "POST" && user.userRoles.includes("basicUser")) {
-            //console.log("posting in posts")
-            //console.log("here we are")
-            //console.log(user)
+        if (method === "POST" && user.userRoles.includes("admin")){
+            return true;
+        }
+
+        if (method === "POST" && req.body.moderatorComment === 0 && user.userRoles.includes("basicUser")) {
+            return true;
+        }
+
+        if (method === "POST" && req.body.moderatorComment === 1 && user.userRoles.includes(`moderatorForum${req.body.parentForum}`)) {
             return true;
         }
         return false;
@@ -61,25 +66,22 @@ module.exports = {
 
     threads(user, method, req) {
 
-        if (method === "POST" && user.userRoles.includes("basicUser")) {
-            /* 
-            check if the body doesn't contain moderatorComment
-            a seperate if statement is needed, that checsk if the user has the role admin
-            a seperate one for moderators, checking if they have the moderator role for that forum
-            Human readable moderator roles looks something like forum.forum_name + "Moderator"
-            */
+        if (method === "POST" && user.userRoles.includes("admin")){
+            return true;
+        }
 
+        if (method === "POST" && req.body.moderatorComment === 0 && user.userRoles.includes("basicUser")) {
+            return true;
+        }
+
+        if (method === "POST" && req.body.moderatorComment === 1 && user.userRoles.includes(`moderatorForum${req.body.parentForum}`)) {
             return true;
         }
 
         if (method === "GET") {
             return true;
         }
-        /*
-        if (method === "POST" && user.userRoles.includes("basicUser")){
-            return true;
-        }
-        */
+
         return false;
     },
 

@@ -1,8 +1,6 @@
 const express = require("express");
 const sqlite3 = require('better-sqlite3');
 
-const { objCamelToSnake, objSnakeToCamel } = require('../HelperFunctions/HelperFunctions')
-
 const router = express.Router();
 
 const ForumFunctions = require('../DBfunctions/ForumFunctions');

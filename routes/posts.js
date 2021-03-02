@@ -42,24 +42,15 @@ router.route("")
             {
                 parentThread : #somenumber,
                 content: "some contentent",
-                moderatorComment: "boolean, true or false" -optional
+                moderatorComment: "integer, 1 or 0" -optional
             }
             */
        const errors = validationResult(req);
        if (!errors.isEmpty()) {
          return res.status(400).json({ errors: errors.array() });
         }
-
-        //return res.status(201).json(req.body)
-
         
         let body = req.body;
-
-        /*
-        if(!MyThreads.threadExists(body.parentThread)){
-            return res.json("no such thread")
-        }
-        */
 
         if(!body.moderatorComment){
             body.moderatorComment = 0;
@@ -71,7 +62,7 @@ router.route("")
         const savedPost = MyPosts.savePost(body);
         body.postId = savedPost.lastInsertRowid;
 
-        //return should perhaps be the thread
+        //TODO return should perhaps be the thread
         return res.status(201).json(body); 
     })
 

@@ -1,6 +1,6 @@
 const sqlite3 = require('better-sqlite3');
 
-const { objCamelToSnake, objSnakeToCamel } = require('../HelperFunctions/HelperFunctions')
+const { objCamelToSnake, objSnakeToCamel } = require('../HelperFunctions/HelperFunctions');
 
 
 module.exports = function(pathToDB) {
@@ -50,6 +50,7 @@ module.exports = function(pathToDB) {
 
             let thread = objSnakeToCamel(threadStatement.get(threadId))
             //TODO maybe do this on frontend?
+            //TODO maybe add next and previous page numbers?
             thread.pages = Math.ceil(thread.numberOfPosts / 10);
 
             //TODO fetch author an username here as well

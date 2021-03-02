@@ -1,10 +1,33 @@
 const sqlite3 = require('better-sqlite3');
 
+const { objCamelToSnake, objSnakeToCamel } = require('../HelperFunctions/HelperFunctions');
+
 module.exports = function(pathToDB) {
 
-    const db = sqlite3(pathToDB)
+    const db = sqlite3(pathToDB);
 
     return {
+
+        getUserByEmail(email) {
+
+            let statement = db.prepare(`
+            SELECT 
+                * 
+            FROM 
+                users
+            WHERE 
+                email = ?
+            `);
+
+            let result = statement.get(email);
+
+            if (result){
+                return objSnakeToCamel(result);
+            } else {
+                return result;
+            }
+
+        },
 
         updateUser: (body) => {
 
@@ -48,24 +71,44 @@ module.exports = function(pathToDB) {
             return true;
         },
 
+        checkEmailAvailability: (email) => {
+
+            let statement = db.prepare(`
+                SELECT 
+                    * 
+                FROM 
+                    users
+                WHERE 
+                    email = ?
+            `);
+
+            let result = statement.get(email);
+
+            if (!result) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+
         getUserById: (id) => {
 
             let statement = db.prepare(`
                 SELECT 
-                U.id, U.email, GROUP_CONCAT(R.role_name) as userRoles 
+                    U.id, U.email, GROUP_CONCAT(R.role_name) as userRoles 
                 FROM 
-                users AS U, users_x_roles AS UXR, roles AS R
+                    users AS U, users_x_roles AS UXR, roles AS R
                 WHERE 
-                U.id = ? AND U.id = UXR.user_id AND UXR.role_id = R.role_id
+                    U.id = ? AND U.id = UXR.user_id AND UXR.role_id = R.role_id
             `);
         
             let result = statement.get(id);
 
             if (!result.id) {
-                throw new Error("no such user")
+                throw new Error("no such user");
             }
 
-            result.userRoles = result.userRoles.split(",")
+            result.userRoles = result.userRoles.split(",");
             return result;
         },
 
@@ -83,7 +126,40 @@ module.exports = function(pathToDB) {
                     U.id
             `);
 
-            return statement.all()
+            return statement.all();
+        },
+        
+        secondValidateUserRoles: (roles) => {
+
+            let nonExistingRoles = []
+            let existingRoles = []
+
+            const userRolesStm = db.prepare(`
+                SELECT 
+                    *
+                FROM
+                    roles
+                WHERE
+                    role_name = ?
+            `)
+    
+            for (let role of roles){
+        
+                let result = userRolesStm.get(role)
+                
+                if (!result) {
+                nonExistingRoles.push(role)
+
+                }else {
+                existingRoles.push(result)
+                }
+            }
+            
+            if (nonExistingRoles.length > 0 || roles.length === 0) {
+                return false
+            }
+
+            return true;
         },
 
         validateUserRoles: (roles) => {
@@ -111,11 +187,14 @@ module.exports = function(pathToDB) {
             let nonExistingRoles = []
             let existingRoles = []
 
-            const userRolesStm = db.prepare(
-                `SELECT *
-                FROM roles
-                WHERE role_name = ?`
-            )
+            const userRolesStm = db.prepare(`
+                SELECT 
+                    *
+                FROM
+                    roles
+                WHERE
+                    role_name = ?
+            `)
     
             for (let role of roles){
         
